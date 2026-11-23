@@ -17,6 +17,7 @@ class DashboardService {
 
   FilterOptions filters() { var s=repository.snapshot(); return new FilterOptions(s.metadata().minDate(), s.metadata().maxDate(), distinct(s.records(),SalesRecord::region), distinct(s.records(),SalesRecord::brand)); }
   Metadata reload() { return repository.reload(); }
+  Metadata useDefault() { return repository.useDefault(); }
   DashboardResult dashboard(LocalDate from, LocalDate to, List<String> regions, List<String> brands) {
     var s=repository.snapshot(); var start=from==null?s.metadata().minDate():from; var end=to==null?s.metadata().maxDate():to;
     if (start.isAfter(end)) throw new IllegalArgumentException("Tanggal mulai tidak boleh setelah tanggal selesai");
@@ -45,7 +46,7 @@ class DashboardService {
   }
   private String money(long n){return NumberFormat.getCurrencyInstance(ID).format(n).replace(",00","").replace("Rp ","Rp");}
   private String date(LocalDate d){return d.format(DateTimeFormatter.ofPattern("d MMM uuuu",ID));}
-  private static long sum(List<SalesRecord> r,java.util.function.ToLongFunction<SalesRecord> f){return r.stream().mapToLong(f).sum();}
+  private static long sum(List<SalesRecord> r,java.util.function.ToLongFunction<SalesRecord> f){long total=0;for(var row:r)try{total=Math.addExact(total,f.applyAsLong(row));}catch(ArithmeticException e){throw new IllegalArgumentException("Total data melampaui batas bilangan bulat 64-bit");}return total;}
   private static int unique(List<SalesRecord> r,Function<SalesRecord,String> f){return (int)r.stream().map(f).distinct().count();}
   private static List<String> distinct(List<SalesRecord> r,Function<SalesRecord,String> f){return r.stream().map(f).distinct().sorted().toList();}
 }

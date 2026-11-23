@@ -1,6 +1,6 @@
 import http from 'node:http';
 import { spawn } from 'node:child_process';
-import { readFile, writeFile, mkdir, stat } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, stat, copyFile } from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -97,7 +97,12 @@ async function startAgent(agent, prompt, mode) {
   const content = await composePrompt(agent, prompt, mode);
   const promptPath = path.join(RUNTIME, `${agent.id}.prompt.txt`);
   const logPath = path.join(RUNTIME, `${agent.id}.log`);
-  const outputPath = path.join(ROOT, agent.output);
+  const historyDirectory = path.join(ROOT, 'outputs', agent.id);
+  const runId = new Date().toISOString().replace(/[:.]/g, '-');
+  const outputPath = path.join(historyDirectory, `${runId}.json`);
+  const latestPath = path.join(historyDirectory, 'latest.json');
+  const compatibilityPath = path.join(ROOT, agent.output);
+  await mkdir(historyDirectory, { recursive: true });
   await writeFile(promptPath, content, 'utf8');
   await writeFile(logPath, `[${new Date().toISOString()}] Memulai ${agent.name}\nMode: ${mode}\n\n`, 'utf8');
 
@@ -113,6 +118,7 @@ async function startAgent(agent, prompt, mode) {
   agent.exitCode = null;
   agent.prompt = prompt;
   agent.mode = mode;
+  agent.historyFile = path.relative(ROOT, outputPath);
   agent.message = 'Codex CLI sedang bekerja';
 
   const append = async (source, chunk) => {
@@ -130,8 +136,20 @@ async function startAgent(agent, prompt, mode) {
     agent.pid = null;
     agent.exitCode = code;
     agent.finishedAt = new Date().toISOString();
-    agent.status = code === 0 ? 'completed' : signal ? 'stopped' : 'failed';
-    agent.message = code === 0 ? 'Pekerjaan selesai' : agent.message || `Proses berhenti dengan kode ${code}`;
+    if (code === 0 && await fileExists(outputPath)) {
+      try {
+        await copyFile(outputPath, latestPath);
+        await copyFile(outputPath, compatibilityPath);
+        agent.status = 'completed';
+        agent.message = `Pekerjaan selesai · tersimpan di ${path.relative(ROOT, outputPath)}`;
+      } catch (error) {
+        agent.status = 'failed';
+        agent.message = `Output history dibuat, tetapi sinkronisasi latest gagal: ${error.message}`;
+      }
+    } else {
+      agent.status = signal ? 'stopped' : 'failed';
+      agent.message = agent.message || `Proses berhenti dengan kode ${code}`;
+    }
     await writeFile(logPath, `\n[${new Date().toISOString()}] Selesai — status=${agent.status}, code=${code}, signal=${signal || '-'}\n`, { flag: 'a' }).catch(() => {});
     broadcast();
   });

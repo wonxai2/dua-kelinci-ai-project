@@ -1,54 +1,13 @@
 package id.duakelinci.dashboard;
-
-import static id.duakelinci.dashboard.ApiModels.*;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
-import java.time.*;
-import java.util.*;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
-@Component
-class CsvSalesRepository {
-  private static final Set<String> REQUIRED = Set.of("date","invoice_no","region","branch","outlet_id","outlet_name","brand","qty_carton","gross_sales_idr","discount_idr","net_sales_idr");
-  private final Path source;
-  private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
-  private List<SalesRecord> records = List.of();
-  private Metadata metadata;
-
-  CsvSalesRepository(@Value("${sales.csv.path}") String path) { source = Path.of(path).toAbsolutePath().normalize(); reload(); }
-
-  Metadata reload() {
-    var next = new ArrayList<SalesRecord>(); var errors = new ArrayList<ValidationError>();
-    try {
-      var lines = Files.readAllLines(source, StandardCharsets.UTF_8);
-      if (lines.isEmpty()) throw new IllegalStateException("CSV kosong");
-      var headerValues = split(lines.getFirst()); var headers = new HashMap<String,Integer>();
-      for (int i=0;i<headerValues.size();i++) headers.put(headerValues.get(i),i);
-      if (!headers.keySet().containsAll(REQUIRED)) {
-        var missing = new TreeSet<>(REQUIRED); missing.removeAll(headers.keySet());
-        throw new IllegalStateException("Header wajib tidak tersedia: " + String.join(", ", missing));
-      }
-      for (int i=1;i<lines.size();i++) { int rowNumber=i+1; try { if(!lines.get(i).isBlank()) next.add(parse(split(lines.get(i)),headers)); }
-      catch (Exception e) { errors.add(new ValidationError(rowNumber, clean(e.getMessage()))); } }
-      if (next.isEmpty()) throw new IllegalStateException("Tidak ada baris valid dalam CSV");
-      var min = next.stream().map(SalesRecord::date).min(Comparator.naturalOrder()).orElseThrow();
-      var max = next.stream().map(SalesRecord::date).max(Comparator.naturalOrder()).orElseThrow();
-      var nextMetadata = new Metadata(source.toString(), min, max, next.size(), errors.size(), Instant.now(), List.copyOf(errors), errors.isEmpty() ? "healthy" : "warning");
-      lock.writeLock().lock(); try { records = List.copyOf(next); metadata = nextMetadata; } finally { lock.writeLock().unlock(); }
-      return nextMetadata;
-    } catch (Exception e) { throw new IllegalStateException("Gagal memuat " + source + ": " + clean(e.getMessage()), e); }
-  }
-  private SalesRecord parse(List<String> r, Map<String,Integer> h) {
-    for (String field : REQUIRED) if (get(r,h,field).isBlank()) throw new IllegalArgumentException(field + " kosong");
-    return new SalesRecord(LocalDate.parse(get(r,h,"date")), get(r,h,"invoice_no"), get(r,h,"region"), get(r,h,"branch"),
-      get(r,h,"outlet_id"), get(r,h,"outlet_name"), get(r,h,"brand"), integer(r,h,"qty_carton"), integer(r,h,"gross_sales_idr"), integer(r,h,"discount_idr"), integer(r,h,"net_sales_idr"));
-  }
-  private String get(List<String> r,Map<String,Integer> h,String key){int i=h.get(key);if(i>=r.size())throw new IllegalArgumentException(key+" tidak tersedia");return r.get(i).trim();}
-  private long integer(List<String> r,Map<String,Integer> h,String key) { try { return Long.parseLong(get(r,h,key)); } catch (NumberFormatException e) { throw new IllegalArgumentException(key + " bukan bilangan bulat"); } }
-  private List<String> split(String line){var values=new ArrayList<String>();var cell=new StringBuilder();boolean quoted=false;for(int i=0;i<line.length();i++){char c=line.charAt(i);if(c=='"'){if(quoted&&i+1<line.length()&&line.charAt(i+1)=='"'){cell.append('"');i++;}else quoted=!quoted;}else if(c==','&&!quoted){values.add(cell.toString());cell.setLength(0);}else cell.append(c);}if(quoted)throw new IllegalArgumentException("Tanda kutip CSV tidak lengkap");values.add(cell.toString());return values;}
-  private String clean(String message) { return message == null ? "Kesalahan tidak diketahui" : message.replaceAll("[\\r\\n]+", " "); }
-  Snapshot snapshot() { lock.readLock().lock(); try { return new Snapshot(records, metadata); } finally { lock.readLock().unlock(); } }
-  record Snapshot(List<SalesRecord> records, Metadata metadata) {}
+import static id.duakelinci.dashboard.ApiModels.*;import java.io.*;import java.nio.file.*;import java.time.*;import java.util.*;import java.util.concurrent.locks.ReentrantReadWriteLock;import org.springframework.beans.factory.annotation.Autowired;import org.springframework.beans.factory.annotation.Value;import org.springframework.stereotype.Component;
+@Component class CsvSalesRepository{
+ final Path defaultSource,dir,active,pointer;final SalesCsvParser parser;final ReentrantReadWriteLock lock=new ReentrantReadWriteLock();List<SalesRecord> records=List.of();Metadata metadata;
+ @Autowired CsvSalesRepository(@Value("${sales.csv.path}")String src,@Value("${sales.import.dir:../runtime/sales-imports}")String d,SalesCsvParser p){defaultSource=Path.of(src).toAbsolutePath().normalize();dir=Path.of(d).toAbsolutePath().normalize();active=dir.resolve("active.csv");pointer=dir.resolve("active.properties");parser=p;init();}CsvSalesRepository(String src){this(src,Path.of(System.getProperty("java.io.tmpdir"),"sales-test-"+UUID.randomUUID()).toString(),new SalesCsvParser(100000));}
+ void init(){try{Files.createDirectories(dir);if(Files.isRegularFile(pointer))loadImport();else loadDefault("healthy");}catch(Exception e){try{loadDefault("warning");}catch(Exception x){throw new IllegalStateException("Data penjualan tidak dapat dimuat",x);}}}
+ Metadata reload(){try{return metadata!=null&&"IMPORT".equals(metadata.sourceType())?loadImport():loadDefault(metadata!=null&&"warning".equals(metadata.status())?"warning":"healthy");}catch(Exception e){throw new IllegalStateException("Sumber aktif tidak dapat dimuat ulang");}}Metadata useDefault(){try{return loadDefault("healthy");}catch(Exception e){throw new IllegalStateException("Data bawaan tidak dapat diaktifkan");}}
+ Metadata activate(Path validated,String name,int rejected,Instant imported,String checksum)throws IOException{Files.createDirectories(dir);Path ct=Files.createTempFile(dir,"activate-",".csv"),mt=Files.createTempFile(dir,"activate-",".properties");Path snapshot=null;try{Files.copy(validated,ct,StandardCopyOption.REPLACE_EXISTING);var parsed=parser.parse(ct);if(parsed.structural()||parsed.records().isEmpty())throw new IOException("Snapshot invalid");UUID id=UUID.randomUUID();snapshot=dir.resolve(id+".csv");Instant now=Instant.now();var p=new Properties();p.setProperty("dataset_id",id.toString());p.setProperty("storage_key",snapshot.getFileName().toString());p.setProperty("display_file_name",name);p.setProperty("checksum",checksum);p.setProperty("imported_at",imported.toString());p.setProperty("activated_at",now.toString());p.setProperty("rejected_rows",String.valueOf(rejected));try(var out=Files.newOutputStream(mt)){p.store(out,"active dataset");}Files.move(ct,snapshot,StandardCopyOption.ATOMIC_MOVE);Files.move(mt,pointer,StandardCopyOption.REPLACE_EXISTING,StandardCopyOption.ATOMIC_MOVE);return install(parsed.records(),meta(id,"IMPORT",name,parsed.records(),rejected,imported,now,rejected>0?"warning":"healthy"));}catch(IOException e){if(snapshot!=null&&Files.exists(snapshot)&&!Files.exists(pointer))Files.deleteIfExists(snapshot);throw e;}finally{Files.deleteIfExists(ct);Files.deleteIfExists(mt);}}
+ Metadata loadImport()throws IOException{var p=new Properties();try(var in=Files.newInputStream(pointer)){p.load(in);}String key=p.getProperty("storage_key","active.csv");Path snapshot=dir.resolve(key).normalize();if(!snapshot.getParent().equals(dir)||!Files.isRegularFile(snapshot))throw new IOException("Snapshot aktif tidak tersedia");var parsed=parser.parse(snapshot);if(parsed.structural()||parsed.records().isEmpty())throw new IOException("Snapshot rusak");int rejected=Integer.parseInt(p.getProperty("rejected_rows","0"));return install(parsed.records(),meta(UUID.fromString(p.getProperty("dataset_id")),"IMPORT",p.getProperty("display_file_name","dataset.csv"),parsed.records(),rejected,Instant.parse(p.getProperty("imported_at")),Instant.parse(p.getProperty("activated_at")),rejected>0?"warning":"healthy"));}
+ Metadata loadDefault(String status)throws IOException{var parsed=parser.parse(defaultSource);if(parsed.structural()||parsed.records().isEmpty())throw new IOException("Data bawaan invalid");Instant now=Instant.now();var m=meta(UUID.nameUUIDFromBytes(defaultSource.toString().getBytes()),"DEFAULT",defaultSource.getFileName().toString(),parsed.records(),(int)parsed.errors().stream().filter(ValidationError::rejected).count(),null,now,status);m=new Metadata(m.datasetId(),m.sourceType(),m.sourceFile(),m.minDate(),m.maxDate(),m.validRows(),m.rejectedRows(),m.importedAt(),m.activatedAt(),m.loadedAt(),parsed.errors().stream().limit(100).toList(),m.status());return install(parsed.records(),m);}
+ Metadata meta(UUID id,String type,String name,List<SalesRecord> rs,int rejected,Instant imported,Instant activated,String status){return new Metadata(id,type,name,rs.stream().map(SalesRecord::date).min(Comparator.naturalOrder()).orElseThrow(),rs.stream().map(SalesRecord::date).max(Comparator.naturalOrder()).orElseThrow(),rs.size(),rejected,imported,activated,Instant.now(),List.of(),status);}
+ Metadata install(List<SalesRecord> rs,Metadata m){lock.writeLock().lock();try{records=List.copyOf(rs);metadata=m;return m;}finally{lock.writeLock().unlock();}}Snapshot snapshot(){lock.readLock().lock();try{return new Snapshot(records,metadata);}finally{lock.readLock().unlock();}}record Snapshot(List<SalesRecord> records,Metadata metadata){}
 }

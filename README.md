@@ -16,7 +16,7 @@ Jalankan tanpa Docker pada dua terminal:
 
 Buka <http://127.0.0.1:5173>. Backend tersedia di <http://127.0.0.1:8080>. Untuk verifikasi, jalankan `cd backend && mvn test` dan `cd frontend && npm run build`.
 
-Konfigurasi opsional: `SALES_CSV_PATH=/path/file.csv ./run-local.sh backend` dan `SERVER_PORT=8081 ./run-local.sh backend`.
+Konfigurasi opsional: `SALES_CSV_PATH=/path/file.csv ./run-local.sh backend`, `SALES_IMPORT_DIR=/path/runtime`, dan `SERVER_PORT=8081 ./run-local.sh backend`. Direktori import menyimpan snapshot aktif secara atomik; file CSV bawaan tetap read-only.
 
 ## Dashboard Agent Lama
 
@@ -66,5 +66,7 @@ Alur upstream: System Analyst → UI/UX Designer → Fullstack Developer. Mode u
 - SA dan UI/UX berjalan dengan sandbox `read-only`.
 - Fullstack berjalan dengan sandbox `workspace-write`. Eksekusi noninteraktif mengikuti kebijakan approval bawaan `codex exec` pada versi CLI yang terpasang.
 - Proses tanpa output stdout/stderr selama 3 menit dihentikan otomatis. Ubah dengan `AGENT_IDLE_MS=300000 npm start`.
-- Log sementara disimpan di `runtime/`; output JSON berada di root proyek.
+- Log sementara disimpan di `runtime/`.
+- Setiap run sukses disimpan sebagai file baru di `outputs/<agent-id>/<timestamp>.json`.
+- `outputs/<agent-id>/latest.json` berisi hasil sukses terbaru. File output di root tetap disinkronkan untuk kompatibilitas pipeline.
 - Tombol **Stop agent** mengirim `SIGTERM`, lalu `SIGKILL` setelah 5 detik jika proses belum selesai.

@@ -1,19 +1,10 @@
 package id.duakelinci.dashboard;
-
-import static id.duakelinci.dashboard.ApiModels.*;
-import java.time.LocalDate;
-import java.util.List;
-import org.springframework.http.*;
-import org.springframework.web.bind.annotation.*;
-
-@RestController @RequestMapping("/api")
-class DashboardController {
-  private final DashboardService service;
-  DashboardController(DashboardService service){this.service=service;}
-  @GetMapping("/dashboard") DashboardResult dashboard(@RequestParam(required=false,name="date_from") LocalDate from,@RequestParam(required=false,name="date_to") LocalDate to,@RequestParam(required=false,name="region") List<String> regions,@RequestParam(required=false,name="brand") List<String> brands){return service.dashboard(from,to,regions,brands);}
-  @GetMapping("/filters") FilterOptions filters(){return service.filters();}
-  @PostMapping("/data/reload") ReloadResult reload(){var m=service.reload();return new ReloadResult(true,m,"Data berhasil dimuat ulang");}
-  @GetMapping("/health") Object health(){var f=service.filters();return java.util.Map.of("status","UP","data_loaded",true,"min_date",f.minDate(),"max_date",f.maxDate());}
-  @ExceptionHandler({IllegalArgumentException.class}) ResponseEntity<?> bad(Exception e){return ResponseEntity.badRequest().body(java.util.Map.of("error",e.getMessage()));}
-  @ExceptionHandler({IllegalStateException.class}) ResponseEntity<?> source(Exception e){return ResponseEntity.status(503).body(java.util.Map.of("error",e.getMessage()));}
+import static id.duakelinci.dashboard.ApiModels.*;import java.time.LocalDate;import java.util.*;import org.springframework.http.*;import org.springframework.web.multipart.support.MissingServletRequestPartException;import org.springframework.web.bind.annotation.*;import org.springframework.web.multipart.*;
+@RestController @RequestMapping("/api") class DashboardController{
+ final DashboardService service;final ImportService imports;DashboardController(DashboardService s,ImportService i){service=s;imports=i;}
+ @GetMapping("/dashboard")DashboardResult dashboard(@RequestParam(required=false,name="date_from")LocalDate from,@RequestParam(required=false,name="date_to")LocalDate to,@RequestParam(required=false,name="region")List<String> regions,@RequestParam(required=false,name="brand")List<String> brands){return service.dashboard(from,to,regions,brands);}@GetMapping("/filters")FilterOptions filters(){return service.filters();}
+ @PostMapping("/data/reload")ReloadResult reload(){var m=service.reload();return new ReloadResult(true,m,"Sumber aktif berhasil dimuat ulang");}@PostMapping("/data/use-default")Metadata useDefault(){return service.useDefault();}
+ @PostMapping(value="/data/import/preview",consumes=MediaType.MULTIPART_FORM_DATA_VALUE)ImportPreview preview(@RequestPart("file")MultipartFile file)throws Exception{return imports.preview(file);}@PostMapping("/data/import/activate")Metadata activate(@RequestBody ActivateImportRequest req)throws Exception{return imports.activate(req);}@DeleteMapping("/data/import/previews/{id}")ResponseEntity<Void>cancel(@PathVariable String id){imports.cancel(id);return ResponseEntity.noContent().build();}@GetMapping("/data/imports")List<ImportAudit>history(@RequestParam(defaultValue="0")int page,@RequestParam(defaultValue="20")int size){return imports.history(page,size);}
+ @GetMapping("/health")Object health(){var m=service.dashboard(null,null,null,null).metadata();return Map.of("status","UP","data_loaded",true,"source_type",m.sourceType(),"dataset_id",m.datasetId(),"loaded_at",m.loadedAt(),"storage_status",m.status());}
+ @ExceptionHandler(ImportService.ImportException.class)ResponseEntity<?> imported(ImportService.ImportException e){return ResponseEntity.status(e.status).body(Map.of("error",e.getMessage(),"code",e.code,"errors",e.errors));}@ExceptionHandler(MaxUploadSizeExceededException.class)ResponseEntity<?>large(){return ResponseEntity.status(413).body(Map.of("error","Ukuran file melebihi batas 10 MB","code","FILE_TOO_LARGE"));}@ExceptionHandler(MissingServletRequestPartException.class)ResponseEntity<?>part(){return ResponseEntity.badRequest().body(Map.of("error","Bagian file wajib tersedia","code","MISSING_FILE"));}@ExceptionHandler(IllegalArgumentException.class)ResponseEntity<?>bad(Exception e){return ResponseEntity.badRequest().body(Map.of("error",e.getMessage()));}@ExceptionHandler({IllegalStateException.class,java.io.IOException.class})ResponseEntity<?>source(Exception e){return ResponseEntity.status(503).body(Map.of("error",e.getMessage()==null?"Operasi penyimpanan gagal":e.getMessage()));}
 }

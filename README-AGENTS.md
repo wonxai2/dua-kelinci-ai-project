@@ -172,7 +172,8 @@ Saat tombol **Start agent** ditekan, server akan:
 4. Menjalankan shell script agent sebagai child process.
 5. Merekam stdout dan stderr ke `runtime/<agent-id>.log`.
 6. Mengirim perubahan status ke dashboard melalui Server-Sent Events.
-7. Menyimpan jawaban akhir Codex ke file output agent.
+7. Menyimpan jawaban Codex ke file history bertimestamp.
+8. Jika run berhasil, memperbarui `latest.json` dan file kompatibilitas di root.
 
 Tombol **Stop agent** mengirim `SIGTERM`. Jika proses masih berjalan setelah lima detik, server mengirim `SIGKILL`.
 
@@ -206,12 +207,23 @@ runtime/
 ├── fullstack-developer.log
 └── fullstack-developer.prompt.txt
 
+outputs/
+├── system-analyst/
+│   ├── <timestamp>.json
+│   └── latest.json
+├── uiux-designer/
+│   ├── <timestamp>.json
+│   └── latest.json
+└── fullstack-developer/
+    ├── <timestamp>.json
+    └── latest.json
+
 output-agent-sa.json
 output-agent-uiux.json
 output-agent-fullstack.json
 ```
 
-Isi `runtime/` bersifat sementara dan diabaikan oleh Git. Output JSON berada di root proyek agar mudah dibaca oleh agent berikutnya.
+Isi `runtime/` bersifat sementara dan diabaikan oleh Git. Setiap run sukses menghasilkan file history baru di `outputs/<agent-id>/`. File `latest.json` diperbarui hanya setelah proses berhasil, sehingga run gagal tidak menghapus hasil valid sebelumnya. Output JSON di root tetap disinkronkan agar agent berikutnya dan integrasi lama tetap kompatibel.
 
 ## Environment variable untuk shell agent
 
