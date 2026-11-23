@@ -1,0 +1,4 @@
+date,invoice_no,region,branch,outlet_id,outlet_name,outlet_type,salesman,brand,sku,qty_carton,price_per_carton_idr,gross_sales_idr,discount_idr,net_sales_idr
+2026-09-01,INV500001,Jabodetabek,Jakarta Barat,OUT1004,Grosir Berkah,Grosir,Andi,Kacang Dua Kelinci,Kacang Kulit 70g,5,198000,990000,49500,940500
+2026-09-01,INV500001,Jabodetabek,Jakarta Barat,OUT1004,Grosir Berkah,Grosir,Andi,Sukro,Sukro Pedas 100g,11,186000,2046000,0,2046000
+2026-09-01,INV500002,Jabodetabek,Tangerang,OUT1007,Grosir Harapan Baru,Grosir,Citra,Roni,Roni Mie Goreng 30g,12,120000,1440000,72000,1368000

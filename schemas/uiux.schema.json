@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["design_brief", "user_flows", "information_architecture", "screens", "design_system", "responsive_behavior", "accessibility", "implementation_prompt"],
+  "properties": {
+    "design_brief": { "type": "string" },
+    "user_flows": { "type": "array", "items": { "type": "string" } },
+    "information_architecture": { "type": "array", "items": { "type": "string" } },
+    "screens": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required":["name","purpose","layout","components","states"], "properties":{"name":{"type":"string"},"purpose":{"type":"string"},"layout":{"type":"string"},"components":{"type":"array","items":{"type":"string"}},"states":{"type":"array","items":{"type":"string"}}} } },
+    "design_system": { "type": "object", "additionalProperties": false, "required":["direction","colors","typography","spacing","components"], "properties":{"direction":{"type":"string"},"colors":{"type":"array","items":{"type":"string"}},"typography":{"type":"array","items":{"type":"string"}},"spacing":{"type":"string"},"components":{"type":"array","items":{"type":"string"}}} },
+    "responsive_behavior": { "type": "array", "items": { "type": "string" } },
+    "accessibility": { "type": "array", "items": { "type": "string" } },
+    "implementation_prompt": { "type": "string" }
+  }
+}

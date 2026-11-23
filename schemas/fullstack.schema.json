@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["status", "summary", "files_changed", "verification", "run_instructions", "remaining_work"],
+  "properties": {
+    "status": { "type": "string", "enum": ["completed", "partial", "blocked"] },
+    "summary": { "type": "string" },
+    "files_changed": { "type": "array", "items": { "type": "string" } },
+    "verification": { "type": "array", "items": { "type": "string" } },
+    "run_instructions": { "type": "array", "items": { "type": "string" } },
+    "remaining_work": { "type": "array", "items": { "type": "string" } }
+  }
+}

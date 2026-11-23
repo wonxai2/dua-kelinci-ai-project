@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["project", "summary", "functional_requirements", "non_functional_requirements", "architecture", "data_model", "api_contracts", "acceptance_criteria", "risks"],
+  "properties": {
+    "project": { "type": "string" },
+    "summary": { "type": "string" },
+    "functional_requirements": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["id", "title", "description", "priority"], "properties": { "id": {"type":"string"}, "title": {"type":"string"}, "description": {"type":"string"}, "priority": {"type":"string", "enum":["must","should","could"]} } } },
+    "non_functional_requirements": { "type": "array", "items": { "type": "string" } },
+    "architecture": { "type": "object", "additionalProperties": false, "required": ["overview", "components", "technology_recommendations"], "properties": { "overview":{"type":"string"}, "components":{"type":"array","items":{"type":"string"}}, "technology_recommendations":{"type":"array","items":{"type":"string"}} } },
+    "data_model": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required":["entity","fields"], "properties":{"entity":{"type":"string"},"fields":{"type":"array","items":{"type":"string"}}} } },
+    "api_contracts": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required":["method","path","purpose"], "properties":{"method":{"type":"string"},"path":{"type":"string"},"purpose":{"type":"string"}}} },
+    "acceptance_criteria": { "type": "array", "items": { "type": "string" } },
+    "risks": { "type": "array", "items": { "type": "string" } }
+  }
+}

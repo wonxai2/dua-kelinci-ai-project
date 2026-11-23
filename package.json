@@ -1,0 +1,11 @@
+{
+  "name": "codex-agent-kanban",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Kanban monitor untuk orkestrasi agent Codex CLI",
+  "scripts": {
+    "start": "node server.mjs",
+    "check": "node --check server.mjs && node --check public/app.js"
+  },
+  "engines": { "node": ">=20" }
+}

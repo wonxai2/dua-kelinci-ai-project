@@ -1,0 +1,16 @@
+id/duakelinci/dashboard/SalesRecord.class
+id/duakelinci/dashboard/DashboardController.class
+id/duakelinci/dashboard/ApiModels$ValidationError.class
+id/duakelinci/dashboard/ApiModels$SalesAggregate.class
+id/duakelinci/dashboard/ApiModels$DashboardResult.class
+id/duakelinci/dashboard/DashboardApplication.class
+id/duakelinci/dashboard/CsvSalesRepository.class
+id/duakelinci/dashboard/WebConfig.class
+id/duakelinci/dashboard/DashboardService.class
+id/duakelinci/dashboard/ApiModels$ReloadResult.class
+id/duakelinci/dashboard/ApiModels$WeakOutlet.class
+id/duakelinci/dashboard/ApiModels$Kpis.class
+id/duakelinci/dashboard/ApiModels$FilterOptions.class
+id/duakelinci/dashboard/ApiModels.class
+id/duakelinci/dashboard/CsvSalesRepository$Snapshot.class
+id/duakelinci/dashboard/ApiModels$Metadata.class
